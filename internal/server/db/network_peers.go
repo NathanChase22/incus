@@ -25,6 +25,9 @@ var networkPeerTypeNames = map[int]string{
 	networkPeerTypeRemote: "remote",
 }
 
+
+// NOTE: generate-database:mapper method -i -e network_peers Create (?)
+
 // CreateNetworkPeer creates a new Network Peer and returns its ID.
 // If there is a mutual peering on the target network side the both peer entries are updated to link to each other's
 // repspective network ID.
@@ -36,6 +39,11 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 
 	if info.Type == "" || info.Type == networkPeerTypeNames[networkPeerTypeLocal] {
 		// Insert a new pending local peer record.
+
+
+		// NOTE: generate-database:mapper stmt -e network_peers create 
+
+
 		result, err := c.tx.ExecContext(ctx, `
 		INSERT INTO networks_peers
 		(network_id, name, description, type, target_network_project, target_network_name)
@@ -59,6 +67,8 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 		if err != nil {
 			return -1, false, err
 		}
+
+		// NOTE: generate-database:mapper stmt -e network_peers create 
 
 		// Insert a new remote peer record.
 		result, err := c.tx.ExecContext(ctx, `
@@ -85,6 +95,9 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	}
 
 	if info.Type == "" || info.Type == networkPeerTypeNames[networkPeerTypeLocal] {
+
+		//NOTE: stmt objects-by-ID
+
 		// Check if we are creating a mutual peering of an existing peer and if so then update both sides
 		// with the respective network IDs. This query looks up our network peer's network name and project
 		// name and then checks if there are any unlinked (target_network_id IS NULL) peers that have
@@ -136,6 +149,8 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 				},
 			}
 
+			//NOTE: stmt update
+
 			// A mutual peering has been found, update both sides with their respective network IDs
 			// and clear the joining target project and network names.
 			for peerID, peerMap := range peerNetworkMap {
@@ -156,8 +171,13 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	return localPeerID, targetPeerNetworkID > -1, nil
 }
 
+// NOTE: Create, references = config
+
 // networkPeerConfigAdd inserts Network peer config keys.
 func networkPeerConfigAdd(tx *sql.Tx, peerID int64, config map[string]string) error {
+	
+	//NOTE: create references=Config (???)
+	
 	stmt, err := tx.Prepare(`
 	INSERT INTO networks_peers_config
 	(network_peer_id, key, value)
@@ -183,8 +203,13 @@ func networkPeerConfigAdd(tx *sql.Tx, peerID int64, config map[string]string) er
 	return nil
 }
 
+//NOTE: GetOne 
+
 // GetNetworkPeer returns the Network Peer ID and info for the given network ID and peer name.
 func (c *ClusterTx) GetNetworkPeer(ctx context.Context, networkID int64, peerName string) (int64, *api.NetworkPeer, error) {
+	
+	//NOTE: objects-by-Name
+	
 	// This query loads the specified local peer as well as trying to ascertain whether there is a mutual
 	// target peer, and if so what are its project and network names. This is used to populate the
 	// TargetProject, TargetNetwork fields and indicates the Status is api.NetworkStatusCreated if available.
@@ -248,6 +273,8 @@ func (c *ClusterTx) GetNetworkPeer(ctx context.Context, networkID int64, peerNam
 	return peerID, &peer, nil
 }
 
+//NOTE: N/A not code gen
+
 // networkPeerPopulatePeerInfo populates the supplied peer's Status, TargetProject and TargetNetwork fields.
 // It uses the state of the targetPeerNetworkProject and targetPeerNetworkName arguments to decide whether the
 // peering is mutually created and whether to use those values rather than the values contained in the peer.
@@ -284,8 +311,13 @@ func networkPeerPopulatePeerInfo(peer *api.NetworkPeer, targetPeerNetworkProject
 	}
 }
 
+//NOTE: 
+
 // networkPeerConfig populates the config map of the Network Peer with the given ID.
 func networkPeerConfig(ctx context.Context, tx *ClusterTx, peerID int64, peer *api.NetworkPeer) error {
+	
+	//NOTE: objects-by-ID
+	
 	q := `
 	SELECT
 		key,
@@ -314,8 +346,13 @@ func networkPeerConfig(ctx context.Context, tx *ClusterTx, peerID int64, peer *a
 	}, peerID)
 }
 
+//NOTE: getMany 
+
 // GetNetworkPeers returns map of Network Peers for the given network ID keyed on Peer ID.
 func (c *ClusterTx) GetNetworkPeers(ctx context.Context, networkID int64) (map[int64]*api.NetworkPeer, error) {
+	
+	//NOTE: objects-by-ID
+	
 	// This query loads the local peers for the network as well as trying to ascertain whether there is a
 	// mutual target peer, and if so what are its project and network names. This is used to populate the
 	// TargetProject, TargetNetwork fields and indicates the Status is api.NetworkStatusCreated if available.
@@ -387,8 +424,13 @@ func (c *ClusterTx) GetNetworkPeers(ctx context.Context, networkID int64) (map[i
 	return peers, nil
 }
 
+//NOTE: GetMany 
+
 // GetNetworkPeerNames returns map of Network Peer names for the given network ID keyed on Peer ID.
 func (c *ClusterTx) GetNetworkPeerNames(ctx context.Context, networkID int64) (map[int64]string, error) {
+	
+	//NOTE: objects-by-ID
+	
 	q := `
 	SELECT
 		id,
@@ -419,8 +461,13 @@ func (c *ClusterTx) GetNetworkPeerNames(ctx context.Context, networkID int64) (m
 	return peers, nil
 }
 
+//NOTE: GetMany
+
 // GetNetworkPeersURLByIntegration returns a slice of API paths for the peers using the integration.
 func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, networkIntegration string) ([]string, error) {
+	
+	//NOTE: objects-by-Name
+	
 	q := `
 	SELECT
 		projects.name,
@@ -455,8 +502,13 @@ func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, network
 	return usedBy, nil
 }
 
+//NOTE: Update, struct=NetworkPeerPut (?)
+
 // UpdateNetworkPeer updates an existing Network Peer.
 func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peerID int64, info *api.NetworkPeerPut) error {
+	
+	//NOTE: update 
+	
 	// Update existing Network peer record.
 	res, err := c.tx.ExecContext(ctx, `
 		UPDATE networks_peers
@@ -490,9 +542,14 @@ func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peer
 	return nil
 }
 
+//NOTE: DeleteOne-by-Name
+
 // DeleteNetworkPeer deletes an existing Network Peer.
 func (c *Cluster) DeleteNetworkPeer(networkID int64, peerID int64) error {
 	return c.Transaction(context.TODO(), func(ctx context.Context, tx *ClusterTx) error {
+		
+		//NOTE: DeleteOne-by-ID
+
 		// Delete existing Network peer record.
 		res, err := tx.tx.Exec(`
 			DELETE FROM networks_peers
@@ -515,17 +572,23 @@ func (c *Cluster) DeleteNetworkPeer(networkID int64, peerID int64) error {
 	})
 }
 
+//NOTE: N/A , define 
+
 // NetworkPeer represents a peer connection.
 type NetworkPeer struct {
 	NetworkName string
 	PeerName    string
 }
 
+//NOTE: GetMany
+
 // GetNetworkPeersTargetNetworkIDs returns a map of peer connections to target network IDs for networks in the
 // specified project and network type.
 func (c *Cluster) GetNetworkPeersTargetNetworkIDs(projectName string, networkType NetworkType) (map[NetworkPeer]int64, error) {
 	var err error
 	peerTargetNetIDs := make(map[NetworkPeer]int64)
+
+	//NOTE: objects-by-Name (?)
 
 	// Build a mapping of network and peer names to target network IDs.
 	q := `SELECT p.name, n.name, p.target_network_id
