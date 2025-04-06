@@ -30,7 +30,7 @@ var networkPeerTypeNames = map[int]string{
 //
 //generate-database:mapper method -i -e network_peer Create struct=NetworkPeer references=Config
 
-//NOTE: config.go already has defined Config including Objects, Create, and Delete
+// NOTE: config.go already has defined Config including Objects, Create, and Delete
 
 // NetworkPeer is our main entity we are quering for
 type NetworkPeer struct {
@@ -39,7 +39,7 @@ type NetworkPeer struct {
 	NetworkName string
 	PeerName    string
 	Description string
-	//not exhaustive at all, my actually link other tables
+	// not exhaustive at all, my actually link other tables
 }
 
 // this struct defines what we will update for UpdateNeworkPeer()
@@ -92,11 +92,11 @@ func networkPeerPopulatePeerInfo(peer *api.NetworkPeer, targetPeerNetworkProject
 	}
 }
 
-//all fields used in WHERE clauses for networks_peers
+// all fields used in WHERE clauses for networks_peers
 
 // NetworkPeerFilter specifies potential query parameter fields
 type NetworkPeerFilter struct {
-	ID        *int
-	Name      *string
-	NetworkID *int64
+	ID          *int
+	NetworkName *string
+	NetworkID   *int64
 }

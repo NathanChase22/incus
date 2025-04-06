@@ -39,8 +39,8 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	if info.Type == "" || info.Type == networkPeerTypeNames[networkPeerTypeLocal] {
 		// Insert a new pending local peer record.
 
-		// NOTE: network_peers create 
-		// 
+		// NOTE: network_peers create
+		//
 
 		result, err := c.tx.ExecContext(ctx, `
 		INSERT INTO networks_peers
@@ -95,19 +95,19 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	if info.Type == "" || info.Type == networkPeerTypeNames[networkPeerTypeLocal] {
 
 		/*
-		- Is a SELECT based on network_id and id FROM network_peers
-		- JOIN with networks based on networks.id == network_peers.network_id
-		- JOIN with projects based on projects.id = network_peers.project_id
-		- JOIN with ourselves, where target_network_name == local_network.name AND 
-			target_network_project ==  local_project.name
-		- JOIN with networks where network_id == target_peer_network.id
-			AND target_peer_project.name = ?
-		
-		- JOIN with projects where target_peer_network.project_id == target_peer_project.id
-			AND target_peer_network.name = ?
+			- Is a SELECT based on network_id and id FROM network_peers
+			- JOIN with networks based on networks.id == network_peers.network_id
+			- JOIN with projects based on projects.id = network_peers.project_id
+			- JOIN with ourselves, where target_network_name == local_network.name AND
+				target_network_project ==  local_project.name
+			- JOIN with networks where network_id == target_peer_network.id
+				AND target_peer_project.name = ?
 
-		- WHERE network_peers.network_id = ? , id = ? , 
-			AND target_peer.target_network_id = NULL
+			- JOIN with projects where target_peer_network.project_id == target_peer_project.id
+				AND target_peer_network.name = ?
+
+			- WHERE network_peers.network_id = ? , id = ? ,
+				AND target_peer.target_network_id = NULL
 
 		*/
 
@@ -188,7 +188,6 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 
 // networkPeerConfigAdd inserts Network peer config keys.
 func networkPeerConfigAdd(tx *sql.Tx, peerID int64, config map[string]string) error {
-
 	stmt, err := tx.Prepare(`
 	INSERT INTO networks_peers_config
 	(network_peer_id, key, value)
@@ -323,7 +322,6 @@ func networkPeerPopulatePeerInfo(peer *api.NetworkPeer, targetPeerNetworkProject
 
 // networkPeerConfig populates the config map of the Network Peer with the given ID.
 func networkPeerConfig(ctx context.Context, tx *ClusterTx, peerID int64, peer *api.NetworkPeer) error {
-	
 	q := `
 	SELECT
 		key,
@@ -433,7 +431,7 @@ func (c *ClusterTx) GetNetworkPeers(ctx context.Context, networkID int64) (map[i
 
 // GetNetworkPeerNames returns map of Network Peer names for the given network ID keyed on Peer ID.
 func (c *ClusterTx) GetNetworkPeerNames(ctx context.Context, networkID int64) (map[int64]string, error) {
-	// NOTE: objects-by-Network_id , id and name are primary 
+	// NOTE: objects-by-Network_id , id and name are primary
 
 	q := `
 	SELECT
@@ -470,11 +468,11 @@ func (c *ClusterTx) GetNetworkPeerNames(ctx context.Context, networkID int64) (m
 // GetNetworkPeersURLByIntegration returns a slice of API paths for the peers using the integration.
 func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, networkIntegration string) ([]string, error) {
 	/*
-	network_peers objects_by_ networks_integrations.name
-		- but it also selects based on other tabels like networks, network_integrations
-			, an projects
-		
-		
+		network_peers objects_by_ networks_integrations.name
+			- but it also selects based on other tabels like networks, network_integrations
+				, an projects
+
+
 
 	*/
 
@@ -517,9 +515,9 @@ func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, network
 // UpdateNetworkPeer updates an existing Network Peer.
 func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peerID int64, info *api.NetworkPeerPut) error {
 	/*
-	network_peers rename description based on network_id and id
-		- QUESTION: how do we specifiy we want to alter the description 
-		while also selecting based on the primary keys???
+		network_peers rename description based on network_id and id
+			- QUESTION: how do we specifiy we want to alter the description
+			while also selecting based on the primary keys???
 
 	*/
 
@@ -543,7 +541,7 @@ func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peer
 	}
 
 	/*
-	network_peers_config 	delete-by-Network_peer_id
+		network_peers_config 	delete-by-Network_peer_id
 
 	*/
 
@@ -567,7 +565,7 @@ func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peer
 func (c *Cluster) DeleteNetworkPeer(networkID int64, peerID int64) error {
 	return c.Transaction(context.TODO(), func(ctx context.Context, tx *ClusterTx) error {
 		/*
-		delete-by-Network_id-and-ID
+			delete-by-Network_id-and-ID
 		*/
 
 		// Delete existing Network peer record.
