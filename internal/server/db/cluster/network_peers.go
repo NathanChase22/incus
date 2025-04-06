@@ -3,12 +3,6 @@
 package cluster
 
 import (
-	"context"
-	"database/sql"
-	"errors"
-	"fmt"
-	"net/http"
-
 	"github.com/lxc/incus/v6/shared/api"
 )
 
@@ -28,54 +22,38 @@ var networkPeerTypeNames = map[int]string{
 //generate-database:mapper reset -i -b "//go:build linux && cgo && !agent"
 //
 //generate-database:mapper stmt -e network_peer objects
-//generate-database:mapper stmt -e network_peer objects-by-Name
-//generate-database:mapper stmt -e network_peer objects-by-ID
 //generate-database:mapper stmt -e network_peer objects-by-NetworkID
 //generate-database:mapper stmt -e network_peer create struct=NetworkPeer
-//generate-database:mapper stmt -e network_peer id
-//generate-database:mapper stmt -e network_peer rename
-//generate-database:mapper stmt -e network_peer update struct=NetworkPeer
-//generate-database:mapper stmt -e network_peer delete-by-Name
+//generate-database:mapper stmt -e network_peer update struct=NetworkPeerUpdate
+//generate-database:mapper stmt -e network_peer update struct=NetworkPeerTarget
+//generate-database:mapper stmt -e network_peer delete-by-NetworkID-and-ID
 //
-//generate-database:mapper method -i -e network_peer GetMany references=Config
-//generate-database:mapper method -i -e network_peer GetOne struct=NetworkPeer
-//generate-database:mapper method -i -e network_peer GetByNetwork struct=NetworkPeer
-//generate-database:mapper method -i -e network_peer Exists struct=NetworkPeer
-//generate-database:mapper method -i -e network_peer Create references=Config
-//generate-database:mapper method -i -e network_peer ID struct=NetworkPeer
-//generate-database:mapper method -i -e network_peer Rename
-//generate-database:mapper method -i -e network_peer DeleteOne-by-Name
-//generate-database:mapper method -i -e network_peer Update struct=NetworkPeer references=Config
+//generate-database:mapper method -i -e network_peer Create struct=NetworkPeer references=Config
 
-// NetworkPeer represents a peer connection.
+//NOTE: config.go already has defined Config including Objects, Create, and Delete
+
+// NetworkPeer is our main entity we are quering for
 type NetworkPeer struct {
+	ID          int `db:"primary=yes"`
+	NetworkID   int `db:"primary=yes"`
 	NetworkName string
 	PeerName    string
-	//include Description??
 	Description string
+	//not exhaustive at all, my actually link other tables
 }
 
+// this struct defines what we will update for UpdateNeworkPeer()
+type NetworkPeerUpdate struct {
+	Description string `db:"sql=networks_peers.description"`
+}
 
-// ToAPI converts the DB records to an API record
-func (n *NetworkPeer) ToAPI(ctx context.Context, tx *sql.Tx) (*api.NetworkPeer, error) {
-	//get config? What do we pass? there doesn't exist a version of this already
-	config, err := GetNetworkPeersConfig(ctx,tx,n.)
-	if err != n {
-		return nil, err
-	}
-
-	// fill in the struct, 
-	resp := api.NetworkPeer{
-		Name: n.PeerName,
-		// TargetNetwork: n.NetworkName,
-		NetworkPeerPut: api.NetworkPeerPut{
-			Description: n.Description,
-			Config: config,
-		},
-	}
-
-	//return
-	return &resp, nil
+// this struct defines what will be updated in CreateNetworkPeer()
+// need to be ptrs to set to NULL, when accessing struct field they get
+// automatically dereferenced
+type NetworkPeerTarget struct {
+	TargetNetworkID      *int    `db:"sql=networks_peers.target_network_id"`
+	TargetNetworkProject *string `db:"sql=networks_peers.target_network_project"`
+	TargetNetworkName    *string `db:"sql=networks_peers.target_network_name"`
 }
 
 // networkPeerPopulatePeerInfo populates the supplied peer's Status, TargetProject and TargetNetwork fields.
@@ -114,10 +92,11 @@ func networkPeerPopulatePeerInfo(peer *api.NetworkPeer, targetPeerNetworkProject
 	}
 }
 
+//all fields used in WHERE clauses for networks_peers
 
 // NetworkPeerFilter specifies potential query parameter fields
 type NetworkPeerFilter struct {
-    ID        *int
-    Name      *string
-    NetworkID *int64
+	ID        *int
+	Name      *string
+	NetworkID *int64
 }
