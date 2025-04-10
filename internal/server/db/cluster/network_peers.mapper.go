@@ -4,111 +4,12 @@
 
 package cluster
 
-import (
-	"context"
-	"errors"
-	"fmt"
-
-	"github.com/mattn/go-sqlite3"
-)
-
-var networkPeerObjects = RegisterStmt(`
-SELECT networks_peers.id, networks_peers.network_id, networks_peers.network_name, networks_peers.peer_name, networks_peers.description
-  FROM networks_peers
-  ORDER BY networks_peers.id, networks_peers.network_id
-`)
-
-var networkPeerObjectsByNetworkID = RegisterStmt(`
-SELECT networks_peers.id, networks_peers.network_id, networks_peers.network_name, networks_peers.peer_name, networks_peers.description
-  FROM networks_peers
-  WHERE ( networks_peers.network_id = ? )
-  ORDER BY networks_peers.id, networks_peers.network_id
-`)
-
 var networkPeerCreate = RegisterStmt(`
-INSERT INTO networks_peers (network_id, network_name, peer_name, description)
+INSERT INTO networks_peers (network_id, name, description, type)
   VALUES (?, ?, ?, ?)
 `)
 
-var networkPeerUpdate = RegisterStmt(`
-UPDATE networks_peers
-  SET network_id = ?, network_name = ?, peer_name = ?, description = ?
- WHERE id = ?
+var networkPeerID = RegisterStmt(`
+SELECT networks_peers.id FROM networks_peers
+  WHERE networks_peers.network_id = ?
 `)
-
-var networkPeerUpdate = RegisterStmt(`
-UPDATE networks_peers
-  SET network_id = ?, network_name = ?, peer_name = ?, description = ?
- WHERE id = ?
-`)
-
-var networkPeerDeleteByNetworkIDAndID = RegisterStmt(`
-DELETE FROM networks_peers WHERE network_id = ? AND id = ?
-`)
-
-// CreateNetworkPeer adds a new network_peer to the database.
-// generator: network_peer Create
-func CreateNetworkPeer(ctx context.Context, db dbtx, object NetworkPeer) (_ int64, _err error) {
-	defer func() {
-		_err = mapErr(_err, "Network_peer")
-	}()
-
-	args := make([]any, 4)
-
-	// Populate the statement arguments.
-	args[0] = object.NetworkID
-	args[1] = object.NetworkName
-	args[2] = object.PeerName
-	args[3] = object.Description
-
-	// Prepared statement to use.
-	stmt, err := Stmt(db, networkPeerCreate)
-	if err != nil {
-		return -1, fmt.Errorf("Failed to get \"networkPeerCreate\" prepared statement: %w", err)
-	}
-
-	// Execute the statement.
-	result, err := stmt.Exec(args...)
-	var sqliteErr sqlite3.Error
-	if errors.As(err, &sqliteErr) {
-		if sqliteErr.Code == sqlite3.ErrConstraint {
-			return -1, ErrConflict
-		}
-	}
-
-	if err != nil {
-		return -1, fmt.Errorf("Failed to create \"networks_peers\" entry: %w", err)
-	}
-
-	id, err := result.LastInsertId()
-	if err != nil {
-		return -1, fmt.Errorf("Failed to fetch \"networks_peers\" entry ID: %w", err)
-	}
-
-	return id, nil
-}
-
-// CreateNetworkPeerConfig adds new network_peer Config to the database.
-// generator: network_peer Create
-func CreateNetworkPeerConfig(ctx context.Context, db dbtx, networkPeerID int64, config map[string]string) (_err error) {
-	defer func() {
-		_err = mapErr(_err, "Network_peer")
-	}()
-
-	referenceID := int(networkPeerID)
-	for key, value := range config {
-		insert := Config{
-			ReferenceID: referenceID,
-			Key:         key,
-			Value:       value,
-		}
-
-		err := CreateConfig(ctx, db, "networks_peers", "network_peer", insert)
-		if err != nil {
-			return fmt.Errorf("Insert Config failed for NetworkPeer: %w", err)
-		}
-
-	}
-
-	return nil
-}
