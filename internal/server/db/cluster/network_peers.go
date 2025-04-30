@@ -20,20 +20,21 @@ import (
 //generate-database:mapper stmt -e network_peer update struct=NetworkPeer
 //generate-database:mapper stmt -e network_peer delete-by-Name
 //
-//generate-database:mapper method -i -e network_peer GetMany
+//generate-database:mapper method -i -e network_peer GetMany references=Config
 //generate-database:mapper method -i -e network_peer GetOne struct=NetworkPeer
 //generate-database:mapper method -i -e network_peer Exists struct=NetworkPeer
-//generate-database:mapper method -i -e network_peer Create
+//generate-database:mapper method -i -e network_peer Create references=Config
 //generate-database:mapper method -i -e network_peer ID struct=NetworkPeer
 //generate-database:mapper method -i -e network_peer DeleteOne-by-Name
-//generate-database:mapper method -i -e network_peer Update struct=NetworkPeer
+//generate-database:mapper method -i -e network_peer Update struct=NetworkPeer references=Config
 
 // NetworkPeer is a value object holding db-related details about a network peer.
+// Fields correspond to the columns in the networks_peers table.
+// generate-database will create CRUD methods and config helpers automatically.
 type NetworkPeer struct {
 	ID                         int64          `db:"id"`
 	NetworkID                  int64          `db:"network_id"`
 	Name                       string         `db:"name"`
-	PeerName                   string         `db:"peer_name"`
 	Description                string         `db:"description"`
 	Type                       int            `db:"type"`
 	TargetNetworkProject       sql.NullString `db:"target_network_project"`

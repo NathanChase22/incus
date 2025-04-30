@@ -15,35 +15,35 @@ import (
 )
 
 var networkPeerObjects = RegisterStmt(`
-SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.peer_name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
+SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
   FROM networks_peers
   ORDER BY networks_peers.name
 `)
 
 var networkPeerObjectsByName = RegisterStmt(`
-SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.peer_name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
+SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
   FROM networks_peers
   WHERE ( networks_peers.name = ? )
   ORDER BY networks_peers.name
 `)
 
 var networkPeerObjectsByID = RegisterStmt(`
-SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.peer_name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
+SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
   FROM networks_peers
   WHERE ( networks_peers.id = ? )
   ORDER BY networks_peers.name
 `)
 
 var networkPeerObjectsByNetworkID = RegisterStmt(`
-SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.peer_name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
+SELECT networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id
   FROM networks_peers
   WHERE ( networks_peers.network_id = ? )
   ORDER BY networks_peers.name
 `)
 
 var networkPeerCreate = RegisterStmt(`
-INSERT INTO networks_peers (network_id, name, peer_name, description, type, target_network_project, target_network_name, target_network_integration_id, target_network_id)
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+INSERT INTO networks_peers (network_id, name, description, type, target_network_project, target_network_name, target_network_integration_id, target_network_id)
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?)
 `)
 
 var networkPeerID = RegisterStmt(`
@@ -53,7 +53,7 @@ SELECT networks_peers.id FROM networks_peers
 
 var networkPeerUpdate = RegisterStmt(`
 UPDATE networks_peers
-  SET network_id = ?, name = ?, peer_name = ?, description = ?, type = ?, target_network_project = ?, target_network_name = ?, target_network_integration_id = ?, target_network_id = ?
+  SET network_id = ?, name = ?, description = ?, type = ?, target_network_project = ?, target_network_name = ?, target_network_integration_id = ?, target_network_id = ?
  WHERE id = ?
 `)
 
@@ -64,7 +64,7 @@ DELETE FROM networks_peers WHERE name = ?
 // networkPeerColumns returns a string of column names to be used with a SELECT statement for the entity.
 // Use this function when building statements to retrieve database entries matching the NetworkPeer entity.
 func networkPeerColumns() string {
-	return "networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.peer_name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id"
+	return "networks_peers.id, networks_peers.network_id, networks_peers.name, networks_peers.description, networks_peers.type, networks_peers.target_network_project, networks_peers.target_network_name, networks_peers.target_network_integration_id, networks_peers.target_network_id"
 }
 
 // getNetworkPeers can be used to run handwritten sql.Stmts to return a slice of objects.
@@ -73,7 +73,7 @@ func getNetworkPeers(ctx context.Context, stmt *sql.Stmt, args ...any) ([]Networ
 
 	dest := func(scan func(dest ...any) error) error {
 		n := NetworkPeer{}
-		err := scan(&n.ID, &n.NetworkID, &n.Name, &n.PeerName, &n.Description, &n.Type, &n.TargetNetworkProject, &n.TargetNetworkName, &n.TargetNetworkIntegrationID, &n.TargetNetworkID)
+		err := scan(&n.ID, &n.NetworkID, &n.Name, &n.Description, &n.Type, &n.TargetNetworkProject, &n.TargetNetworkName, &n.TargetNetworkIntegrationID, &n.TargetNetworkID)
 		if err != nil {
 			return err
 		}
@@ -97,7 +97,7 @@ func getNetworkPeersRaw(ctx context.Context, db dbtx, sql string, args ...any) (
 
 	dest := func(scan func(dest ...any) error) error {
 		n := NetworkPeer{}
-		err := scan(&n.ID, &n.NetworkID, &n.Name, &n.PeerName, &n.Description, &n.Type, &n.TargetNetworkProject, &n.TargetNetworkName, &n.TargetNetworkIntegrationID, &n.TargetNetworkID)
+		err := scan(&n.ID, &n.NetworkID, &n.Name, &n.Description, &n.Type, &n.TargetNetworkProject, &n.TargetNetworkName, &n.TargetNetworkIntegrationID, &n.TargetNetworkID)
 		if err != nil {
 			return err
 		}
@@ -234,6 +234,26 @@ func GetNetworkPeers(ctx context.Context, db dbtx, filters ...NetworkPeerFilter)
 	return objects, nil
 }
 
+// GetNetworkPeerConfig returns all available NetworkPeer Config
+// generator: network_peer GetMany
+func GetNetworkPeerConfig(ctx context.Context, db tx, networkPeerID int, filters ...ConfigFilter) (_ map[string]string, _err error) {
+	defer func() {
+		_err = mapErr(_err, "Network_peer")
+	}()
+
+	networkPeerConfig, err := GetConfig(ctx, db, "networks_peers", "network_peer", filters...)
+	if err != nil {
+		return nil, err
+	}
+
+	config, ok := networkPeerConfig[networkPeerID]
+	if !ok {
+		config = map[string]string{}
+	}
+
+	return config, nil
+}
+
 // GetNetworkPeer returns the network_peer with the given key.
 // generator: network_peer GetOne
 func GetNetworkPeer(ctx context.Context, db dbtx, name string) (_ *NetworkPeer, _err error) {
@@ -292,18 +312,17 @@ func CreateNetworkPeer(ctx context.Context, db dbtx, object NetworkPeer) (_ int6
 		_err = mapErr(_err, "Network_peer")
 	}()
 
-	args := make([]any, 9)
+	args := make([]any, 8)
 
 	// Populate the statement arguments.
 	args[0] = object.NetworkID
 	args[1] = object.Name
-	args[2] = object.PeerName
-	args[3] = object.Description
-	args[4] = object.Type
-	args[5] = object.TargetNetworkProject
-	args[6] = object.TargetNetworkName
-	args[7] = object.TargetNetworkIntegrationID
-	args[8] = object.TargetNetworkID
+	args[2] = object.Description
+	args[3] = object.Type
+	args[4] = object.TargetNetworkProject
+	args[5] = object.TargetNetworkName
+	args[6] = object.TargetNetworkIntegrationID
+	args[7] = object.TargetNetworkID
 
 	// Prepared statement to use.
 	stmt, err := Stmt(db, networkPeerCreate)
@@ -330,6 +349,31 @@ func CreateNetworkPeer(ctx context.Context, db dbtx, object NetworkPeer) (_ int6
 	}
 
 	return id, nil
+}
+
+// CreateNetworkPeerConfig adds new network_peer Config to the database.
+// generator: network_peer Create
+func CreateNetworkPeerConfig(ctx context.Context, db dbtx, networkPeerID int64, config map[string]string) (_err error) {
+	defer func() {
+		_err = mapErr(_err, "Network_peer")
+	}()
+
+	referenceID := int(networkPeerID)
+	for key, value := range config {
+		insert := Config{
+			ReferenceID: referenceID,
+			Key:         key,
+			Value:       value,
+		}
+
+		err := CreateConfig(ctx, db, "networks_peers", "network_peer", insert)
+		if err != nil {
+			return fmt.Errorf("Insert Config failed for NetworkPeer: %w", err)
+		}
+
+	}
+
+	return nil
 }
 
 // GetNetworkPeerID return the ID of the network_peer with the given key.
@@ -406,7 +450,7 @@ func UpdateNetworkPeer(ctx context.Context, db tx, name string, object NetworkPe
 		return fmt.Errorf("Failed to get \"networkPeerUpdate\" prepared statement: %w", err)
 	}
 
-	result, err := stmt.Exec(object.NetworkID, object.Name, object.PeerName, object.Description, object.Type, object.TargetNetworkProject, object.TargetNetworkName, object.TargetNetworkIntegrationID, object.TargetNetworkID, id)
+	result, err := stmt.Exec(object.NetworkID, object.Name, object.Description, object.Type, object.TargetNetworkProject, object.TargetNetworkName, object.TargetNetworkIntegrationID, object.TargetNetworkID, id)
 	if err != nil {
 		return fmt.Errorf("Update \"networks_peers\" entry failed: %w", err)
 	}
@@ -418,6 +462,21 @@ func UpdateNetworkPeer(ctx context.Context, db tx, name string, object NetworkPe
 
 	if n != 1 {
 		return fmt.Errorf("Query updated %d rows instead of 1", n)
+	}
+
+	return nil
+}
+
+// UpdateNetworkPeerConfig updates the network_peer Config matching the given key parameters.
+// generator: network_peer Update
+func UpdateNetworkPeerConfig(ctx context.Context, db tx, networkPeerID int64, config map[string]string) (_err error) {
+	defer func() {
+		_err = mapErr(_err, "Network_peer")
+	}()
+
+	err := UpdateConfig(ctx, db, "networks_peers", "network_peer", int(networkPeerID), config)
+	if err != nil {
+		return fmt.Errorf("Replace Config for NetworkPeer failed: %w", err)
 	}
 
 	return nil

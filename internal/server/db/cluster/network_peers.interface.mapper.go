@@ -6,6 +6,10 @@ import "context"
 
 // NetworkPeerGenerated is an interface of generated methods for NetworkPeer.
 type NetworkPeerGenerated interface {
+	// GetNetworkPeerConfig returns all available NetworkPeer Config
+	// generator: network_peer GetMany
+	GetNetworkPeerConfig(ctx context.Context, db tx, networkPeerID int, filters ...ConfigFilter) (map[string]string, error)
+
 	// GetNetworkPeers returns all available network_peers.
 	// generator: network_peer GetMany
 	GetNetworkPeers(ctx context.Context, db dbtx, filters ...NetworkPeerFilter) ([]NetworkPeer, error)
@@ -18,6 +22,10 @@ type NetworkPeerGenerated interface {
 	// generator: network_peer Exists
 	NetworkPeerExists(ctx context.Context, db dbtx, name string) (bool, error)
 
+	// CreateNetworkPeerConfig adds new network_peer Config to the database.
+	// generator: network_peer Create
+	CreateNetworkPeerConfig(ctx context.Context, db dbtx, networkPeerID int64, config map[string]string) error
+
 	// CreateNetworkPeer adds a new network_peer to the database.
 	// generator: network_peer Create
 	CreateNetworkPeer(ctx context.Context, db dbtx, object NetworkPeer) (int64, error)
@@ -29,6 +37,10 @@ type NetworkPeerGenerated interface {
 	// DeleteNetworkPeer deletes the network_peer matching the given key parameters.
 	// generator: network_peer DeleteOne-by-Name
 	DeleteNetworkPeer(ctx context.Context, db dbtx, name string) error
+
+	// UpdateNetworkPeerConfig updates the network_peer Config matching the given key parameters.
+	// generator: network_peer Update
+	UpdateNetworkPeerConfig(ctx context.Context, db tx, networkPeerID int64, config map[string]string) error
 
 	// UpdateNetworkPeer updates the network_peer matching the given key parameters.
 	// generator: network_peer Update
