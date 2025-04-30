@@ -33,7 +33,6 @@ type NetworkPeer struct {
 	ID                         int64          `db:"id"`
 	NetworkID                  int64          `db:"network_id"`
 	Name                       string         `db:"name"`
-	NetworkName                string         `db:"network_name"`
 	PeerName                   string         `db:"peer_name"`
 	Description                string         `db:"description"`
 	Type                       int            `db:"type"`
