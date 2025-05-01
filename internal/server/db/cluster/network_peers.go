@@ -12,21 +12,36 @@ import (
 //generate-database:mapper reset -i -b "//go:build linux && cgo && !agent"
 //
 //generate-database:mapper stmt -e network_peer objects
+//generate-database:mapper stmt -e network_peer names
 //generate-database:mapper stmt -e network_peer objects-by-Name
 //generate-database:mapper stmt -e network_peer objects-by-ID
 //generate-database:mapper stmt -e network_peer objects-by-NetworkID
+//generate-database:mapper stmt -e network_peer objects-by-NetworkID-and-Name
+//generate-database:mapper stmt -e network_peer objects-by-NetworkID-and-ID
+//generate-database:mapper stmt -e network_peer names-by-NetworkID
 //generate-database:mapper stmt -e network_peer create struct=NetworkPeer
 //generate-database:mapper stmt -e network_peer id
 //generate-database:mapper stmt -e network_peer update struct=NetworkPeer
-//generate-database:mapper stmt -e network_peer delete-by-Name
+//generate-database:mapper stmt -e network_peer delete-by-NetworkID-and-ID
 //
 //generate-database:mapper method -i -e network_peer GetMany references=Config
 //generate-database:mapper method -i -e network_peer GetOne struct=NetworkPeer
+//generate-database:mapper method -i -e network_peer GetNames-by-NetworkID
 //generate-database:mapper method -i -e network_peer Exists struct=NetworkPeer
 //generate-database:mapper method -i -e network_peer Create references=Config
 //generate-database:mapper method -i -e network_peer ID struct=NetworkPeer
-//generate-database:mapper method -i -e network_peer DeleteOne-by-Name
+//generate-database:mapper method -i -e network_peer DeleteOne-by-NetworkID-and-ID
 //generate-database:mapper method -i -e network_peer Update struct=NetworkPeer references=Config
+
+const (
+	networkPeerTypeLocal = iota
+	networkPeerTypeRemote
+)
+
+var networkPeerTypeNames = map[int]string{
+	networkPeerTypeLocal:  "local",
+	networkPeerTypeRemote: "remote",
+}
 
 // NetworkPeer is a value object holding db-related details about a network peer.
 // Fields correspond to the columns in the networks_peers table.
