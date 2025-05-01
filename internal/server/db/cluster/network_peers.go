@@ -3,7 +3,10 @@
 package cluster
 
 import (
+	"context"
 	"database/sql"
+
+	"github.com/lxc/incus/v6/shared/api"
 )
 
 // Code generation directives.
@@ -63,4 +66,28 @@ type NetworkPeerFilter struct {
 	ID        *int64
 	Name      *string
 	NetworkID *int64
+}
+
+// ToAPI converts the database NetworkPeer to API type.
+func (n *NetworkPeer) ToAPI(ctx context.Context, tx *sql.Tx) (*api.NetworkPeer, error) {
+	// Load config for this peer
+	configMap, err := GetNetworkPeerConfig(ctx, tx, int(n.ID))
+	if err != nil {
+		return nil, err
+	}
+
+	resp := api.NetworkPeer{
+		NetworkPeerPut: api.NetworkPeerPut{
+			Description: n.Description,
+			Config:      configMap,
+		},
+		Name:              n.Name,
+		TargetProject:     n.TargetNetworkProject.String,
+		TargetNetwork:     n.TargetNetworkName.String,
+		Type:              networkPeerTypeNames[n.Type],
+		Status:            "", // status should be set by caller based on lookup
+		UsedBy:            []string{},
+		TargetIntegration: "", // integration not stored in this struct
+	}
+	return &resp, nil
 }
