@@ -490,31 +490,6 @@ func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peer
 	return nil
 }
 
-// DeleteNetworkPeer deletes an existing Network Peer.
-func (c *Cluster) DeleteNetworkPeer(networkID int64, peerID int64) error {
-	return c.Transaction(context.TODO(), func(ctx context.Context, tx *ClusterTx) error {
-		// Delete existing Network peer record.
-		res, err := tx.tx.Exec(`
-			DELETE FROM networks_peers
-			WHERE network_id = ? and id = ?
-		`, networkID, peerID)
-		if err != nil {
-			return err
-		}
-
-		rowsAffected, err := res.RowsAffected()
-		if err != nil {
-			return err
-		}
-
-		if rowsAffected <= 0 {
-			return api.StatusErrorf(http.StatusNotFound, "Network peer not found")
-		}
-
-		return nil
-	})
-}
-
 // NetworkPeer represents a peer connection.
 type NetworkPeer struct {
 	NetworkName string

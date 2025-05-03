@@ -6541,7 +6541,14 @@ func (n *ovn) PeerCreate(peer api.NetworkPeersPost) error {
 	}
 
 	reverter.Add(func() {
-		_ = n.state.DB.Cluster.DeleteNetworkPeer(n.ID(), peerID)
+		_ = n.state.DB.Cluster.Transaction(context.TODO(), func(ctx context.Context, tx *db.ClusterTx) error {
+			err := dbCluster.DeleteNetworkPeer(ctx, tx.Tx(), n.ID(), peerID)
+			if errors.Is(err, dbCluster.ErrNotFound) {
+				return nil
+			}
+
+			return err
+		})
 	})
 
 	// Apply the OVN configuration.
@@ -6925,7 +6932,14 @@ func (n *ovn) PeerDelete(peerName string) error {
 		}
 	}
 
-	err = n.state.DB.Cluster.DeleteNetworkPeer(n.ID(), peerID)
+	err = n.state.DB.Cluster.Transaction(context.TODO(), func(ctx context.Context, tx *db.ClusterTx) error {
+		err := dbCluster.DeleteNetworkPeer(ctx, tx.Tx(), n.ID(), peerID)
+		if errors.Is(err, dbCluster.ErrNotFound) {
+			return api.StatusErrorf(http.StatusNotFound, "Network peer not found")
+		}
+
+		return err
+	})
 	if err != nil {
 		return err
 	}
