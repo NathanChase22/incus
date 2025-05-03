@@ -3,10 +3,7 @@
 package cluster
 
 import (
-	"context"
 	"database/sql"
-
-	"github.com/lxc/incus/v6/shared/api"
 )
 
 // Code generation directives.
@@ -36,15 +33,15 @@ import (
 //generate-database:mapper method -i -e network_peer DeleteOne-by-NetworkID-and-ID
 //generate-database:mapper method -i -e network_peer Update struct=NetworkPeer references=Config
 
-const (
-	networkPeerTypeLocal = iota
-	networkPeerTypeRemote
-)
+// const (
+// 	networkPeerTypeLocal = iota
+// 	networkPeerTypeRemote
+// )
 
-var networkPeerTypeNames = map[int]string{
-	networkPeerTypeLocal:  "local",
-	networkPeerTypeRemote: "remote",
-}
+// var networkPeerTypeNames = map[int]string{
+// 	networkPeerTypeLocal:  "local",
+// 	networkPeerTypeRemote: "remote",
+// }
 
 // NetworkPeer is a value object holding db-related details about a network peer.
 // Fields correspond to the columns in the networks_peers table.
@@ -69,25 +66,24 @@ type NetworkPeerFilter struct {
 }
 
 // ToAPI converts the database NetworkPeer to API type.
-func (n *NetworkPeer) ToAPI(ctx context.Context, tx *sql.Tx) (*api.NetworkPeer, error) {
-	// Load config for this peer
-	configMap, err := GetNetworkPeerConfig(ctx, tx, int(n.ID))
-	if err != nil {
-		return nil, err
-	}
+// func (n *NetworkPeer) ToAPI(ctx context.Context, tx *sql.Tx) (*api.NetworkPeer, error) {
+// 	configMap, err := GetNetworkPeerConfig(ctx, tx, int(n.ID))
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	resp := api.NetworkPeer{
-		NetworkPeerPut: api.NetworkPeerPut{
-			Description: n.Description,
-			Config:      configMap,
-		},
-		Name:              n.Name,
-		TargetProject:     n.TargetNetworkProject.String,
-		TargetNetwork:     n.TargetNetworkName.String,
-		Type:              networkPeerTypeNames[n.Type],
-		Status:            "",
-		UsedBy:            []string{},
-		TargetIntegration: "",
-	}
-	return &resp, nil
-}
+// 	resp := api.NetworkPeer{
+// 		NetworkPeerPut: api.NetworkPeerPut{
+// 			Description: n.Description,
+// 			Config:      configMap,
+// 		},
+// 		Name:              n.Name,
+// 		TargetProject:     n.TargetNetworkProject.String,
+// 		TargetNetwork:     n.TargetNetworkName.String,
+// 		Type:              networkPeerTypeNames[n.Type],
+// 		Status:            "",
+// 		UsedBy:            []string{},
+// 		TargetIntegration: "",
+// 	}
+// 	return &resp, nil
+// }
