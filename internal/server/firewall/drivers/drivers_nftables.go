@@ -241,7 +241,7 @@ func (d Nftables) networkSetupForwardingPolicy(networkName string, ip4Allow *boo
 // If srcIP is non-nil then SNAT is used with the specified address, otherwise MASQUERADE mode is used.
 // Append mode is always on and so the append argument is ignored.
 func (d Nftables) networkSetupOutboundNAT(networkName string, SNATV4 *SNATOpts, SNATV6 *SNATOpts) error {
-	rules := make(map[string]*SNATOpts, 0)
+	rules := make(map[string]*SNATOpts)
 
 	tplFields := map[string]any{
 		"namespace":      nftablesNamespace,
@@ -387,10 +387,9 @@ func (d Nftables) NetworkClear(networkName string, _ bool, _ []uint) error {
 		return fmt.Errorf("Failed clearing nftables rules for network %q: %w", networkName, err)
 	}
 
-	err = d.RemoveIncusAddressSets("inet")
-	if err != nil {
-		return fmt.Errorf("Error in deletion of address sets: %w", err)
-	}
+	// Attempt to delete our address sets.
+	// This will fail so long as there are still rules referencing them (other networks).
+	_ = d.RemoveIncusAddressSets("bridge")
 
 	return nil
 }
@@ -1358,7 +1357,6 @@ func (d Nftables) NetworkApplyForwards(networkName string, rules []AddressForwar
 			targetAddressStr := rule.TargetAddress.String()
 
 			if rule.Protocol != "" {
-
 				targetPortRanges := portRangesFromSlice(rule.TargetPorts)
 
 				for _, targetPortRange := range targetPortRanges {
@@ -1372,7 +1370,6 @@ func (d Nftables) NetworkApplyForwards(networkName string, rules []AddressForwar
 				}
 
 				dnatRanges := getOptimisedDNATRanges(&rule)
-
 				for listenPortRange, targetPortRange := range dnatRanges {
 					// Format the destination host/port as appropriate
 					targetDest := targetAddressStr
@@ -1393,6 +1390,17 @@ func (d Nftables) NetworkApplyForwards(networkName string, rules []AddressForwar
 						"listenPorts":   portRangeStr(listenPortRange, "-"),
 						"targetDest":    targetDest,
 					})
+
+					if rule.SNAT {
+						snatRules = append(snatRules, map[string]any{
+							"ipFamily":      ipFamily,
+							"protocol":      rule.Protocol,
+							"listenAddress": listenAddressStr,
+							"listenPorts":   portRangeStr(listenPortRange, "-"),
+							"targetAddress": targetAddressStr,
+							"targetPorts":   portRangeStr(targetPortRange, "-"),
+						})
+					}
 				}
 			} else {
 				// Format the destination host/port as appropriate.

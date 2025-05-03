@@ -516,7 +516,7 @@ Pre-defined column shorthand chars:
   d - Description
   L - Location of the storage bucket (e.g. its cluster member)`))
 
-	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", "table", i18n.G(`Format (csv|json|table|yaml|compact), use suffix ",noheader" to disable headers and ",header" to enable it if missing, e.g. csv,header`)+"``")
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", c.global.defaultListFormat(), i18n.G(`Format (csv|json|table|yaml|compact), use suffix ",noheader" to disable headers and ",header" to enable it if missing, e.g. csv,header`)+"``")
 	cmd.Flags().BoolVar(&c.flagAllProjects, "all-projects", false, i18n.G("Display storage pool buckets from all projects"))
 	cmd.Flags().StringVarP(&c.flagColumns, "columns", "c", defaultStorageBucketColumns, i18n.G("Columns")+"``")
 
@@ -606,14 +606,22 @@ func (c *cmdStorageBucketList) Run(cmd *cobra.Command, args []string) error {
 
 	client := resource.server
 
+	// Process the filters
+	filters := []string{}
+	if len(args) > 1 {
+		filters = append(filters, args[1:]...)
+	}
+
+	filters = prepareStorageBucketFilters(filters)
+
 	var buckets []api.StorageBucket
 	if c.flagAllProjects {
-		buckets, err = client.GetStoragePoolBucketsAllProjects(resource.name)
+		buckets, err = client.GetStoragePoolBucketsWithFilterAllProjects(resource.name, filters)
 		if err != nil {
 			return err
 		}
 	} else {
-		buckets, err = client.GetStoragePoolBuckets(resource.name)
+		buckets, err = client.GetStoragePoolBucketsWithFilter(resource.name, filters)
 		if err != nil {
 			return err
 		}
@@ -672,6 +680,30 @@ For backward compatibility, a single configuration key may still be set with:
 	cmd.RunE = c.Run
 
 	return cmd
+}
+
+// prepareStorageBucketFilters processes and formats filter criteria
+// for storage buckets, ensuring they are in a format that the server can interpret.
+func prepareStorageBucketFilters(filters []string) []string {
+	formatedFilters := []string{}
+
+	for _, filter := range filters {
+		membs := strings.SplitN(filter, "=", 2)
+		key := membs[0]
+
+		if len(membs) == 1 {
+			regexpValue := key
+			if !strings.Contains(key, "^") && !strings.Contains(key, "$") {
+				regexpValue = "^" + regexpValue + "$"
+			}
+
+			filter = fmt.Sprintf("name=(%s|^%s.*)", regexpValue, key)
+		}
+
+		formatedFilters = append(formatedFilters, filter)
+	}
+
+	return formatedFilters
 }
 
 // Run runs the actual command logic.
@@ -931,7 +963,7 @@ Pre-defined column shorthand chars:
   n - Name
   d - Description
   r - Role`))
-	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", "table", i18n.G(`Format (csv|json|table|yaml|compact), use suffix ",noheader" to disable headers and ",header" to enable it if missing, e.g. csv,header`)+"``")
+	cmd.Flags().StringVarP(&c.flagFormat, "format", "f", c.global.defaultListFormat(), i18n.G(`Format (csv|json|table|yaml|compact), use suffix ",noheader" to disable headers and ",header" to enable it if missing, e.g. csv,header`)+"``")
 	cmd.Flags().StringVar(&c.storageBucketKey.flagTarget, "target", "", i18n.G("Cluster member name")+"``")
 	cmd.Flags().StringVarP(&c.flagColumns, "columns", "c", defaultStorageBucketKeyColumns, i18n.G("Columns")+"``")
 

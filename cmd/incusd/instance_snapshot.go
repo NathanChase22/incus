@@ -124,11 +124,6 @@ import (
 func instanceSnapshotsGet(d *Daemon, r *http.Request) response.Response {
 	s := d.State()
 
-	instanceType, err := urlInstanceTypeDetect(r)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
 	projectName := request.ProjectParam(r)
 	cname, err := url.PathUnescape(mux.Vars(r)["name"])
 	if err != nil {
@@ -140,7 +135,7 @@ func instanceSnapshotsGet(d *Daemon, r *http.Request) response.Response {
 	}
 
 	// Handle requests targeted to a container on a different node
-	resp, err := forwardedResponseIfInstanceIsRemote(s, r, projectName, cname, instanceType)
+	resp, err := forwardedResponseIfInstanceIsRemote(s, r, projectName, cname)
 	if err != nil {
 		return response.SmartError(err)
 	}
@@ -240,11 +235,6 @@ func instanceSnapshotsGet(d *Daemon, r *http.Request) response.Response {
 func instanceSnapshotsPost(d *Daemon, r *http.Request) response.Response {
 	s := d.State()
 
-	instanceType, err := urlInstanceTypeDetect(r)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
 	projectName := request.ProjectParam(r)
 	name, err := url.PathUnescape(mux.Vars(r)["name"])
 	if err != nil {
@@ -278,7 +268,7 @@ func instanceSnapshotsPost(d *Daemon, r *http.Request) response.Response {
 	}
 
 	// Handle requests targeted to a container on a different node
-	resp, err := forwardedResponseIfInstanceIsRemote(s, r, projectName, name, instanceType)
+	resp, err := forwardedResponseIfInstanceIsRemote(s, r, projectName, name)
 	if err != nil {
 		return response.SmartError(err)
 	}
@@ -347,11 +337,6 @@ func instanceSnapshotsPost(d *Daemon, r *http.Request) response.Response {
 func instanceSnapshotHandler(d *Daemon, r *http.Request) response.Response {
 	s := d.State()
 
-	instanceType, err := urlInstanceTypeDetect(r)
-	if err != nil {
-		return response.SmartError(err)
-	}
-
 	projectName := request.ProjectParam(r)
 	instName, err := url.PathUnescape(mux.Vars(r)["name"])
 	if err != nil {
@@ -363,7 +348,7 @@ func instanceSnapshotHandler(d *Daemon, r *http.Request) response.Response {
 		return response.SmartError(err)
 	}
 
-	resp, err := forwardedResponseIfInstanceIsRemote(s, r, projectName, instName, instanceType)
+	resp, err := forwardedResponseIfInstanceIsRemote(s, r, projectName, instName)
 	if err != nil {
 		return response.SmartError(err)
 	}
@@ -384,7 +369,7 @@ func instanceSnapshotHandler(d *Daemon, r *http.Request) response.Response {
 
 	switch r.Method {
 	case "GET":
-		return snapshotGet(s, snapInst)
+		return snapshotGet(snapInst)
 	case "POST":
 		return snapshotPost(s, r, snapInst)
 	case "DELETE":
@@ -584,7 +569,7 @@ func snapshotPut(s *state.State, r *http.Request, snapInst instance.Instance) re
 //	    $ref: "#/responses/Forbidden"
 //	  "500":
 //	    $ref: "#/responses/InternalServerError"
-func snapshotGet(s *state.State, snapInst instance.Instance) response.Response {
+func snapshotGet(snapInst instance.Instance) response.Response {
 	render, _, err := snapInst.RenderWithUsage()
 	if err != nil {
 		return response.SmartError(err)
@@ -682,7 +667,7 @@ func snapshotPost(s *state.State, r *http.Request, snapInst instance.Instance) r
 
 		run := func(op *operations.Operation) error {
 			ws.instance.SetOperation(op)
-			return ws.Do(s, op)
+			return ws.do(op)
 		}
 
 		if req.Target != nil {
