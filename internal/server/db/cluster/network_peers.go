@@ -85,9 +85,9 @@ func (n *NetworkPeer) ToAPI(ctx context.Context, tx *sql.Tx) (*api.NetworkPeer, 
 		TargetProject:     n.TargetNetworkProject.String,
 		TargetNetwork:     n.TargetNetworkName.String,
 		Type:              networkPeerTypeNames[n.Type],
-		Status:            "", // status should be set by caller based on lookup
+		Status:            "",
 		UsedBy:            []string{},
-		TargetIntegration: "", // integration not stored in this struct
+		TargetIntegration: "",
 	}
 	return &resp, nil
 }
