@@ -330,37 +330,6 @@ func (c *ClusterTx) GetNetworkPeers(ctx context.Context, networkID int64) (map[i
 	return peers, nil
 }
 
-// GetNetworkPeerNames returns map of Network Peer names for the given network ID keyed on Peer ID.
-func (c *ClusterTx) GetNetworkPeerNames(ctx context.Context, networkID int64) (map[int64]string, error) {
-	q := `
-	SELECT
-		id,
-		name
-	FROM networks_peers
-	WHERE networks_peers.network_id = ?
-	`
-
-	peers := make(map[int64]string)
-
-	err := query.Scan(ctx, c.tx, q, func(scan func(dest ...any) error) error {
-		var peerID int64 = -1
-		var peerName string
-
-		err := scan(&peerID, &peerName)
-		if err != nil {
-			return err
-		}
-
-		peers[peerID] = peerName
-
-		return nil
-	}, networkID)
-	if err != nil {
-		return nil, err
-	}
-
-	return peers, nil
-}
 
 // GetNetworkPeersURLByIntegration returns a slice of API paths for the peers using the integration.
 func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, networkIntegration string) ([]string, error) {

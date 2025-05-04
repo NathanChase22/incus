@@ -12,6 +12,7 @@ import (
 	"github.com/lxc/incus/v6/internal/filter"
 	"github.com/lxc/incus/v6/internal/server/auth"
 	"github.com/lxc/incus/v6/internal/server/db"
+	dbCluster "github.com/lxc/incus/v6/internal/server/db/cluster"
 	"github.com/lxc/incus/v6/internal/server/lifecycle"
 	"github.com/lxc/incus/v6/internal/server/network"
 	"github.com/lxc/incus/v6/internal/server/project"
@@ -217,9 +218,20 @@ func networkPeersGet(d *Daemon, r *http.Request) response.Response {
 		var peerNames map[int64]string
 
 		err = s.DB.Cluster.Transaction(r.Context(), func(ctx context.Context, tx *db.ClusterTx) error {
-			peerNames, err = tx.GetNetworkPeerNames(ctx, n.ID())
+			// Use the generated GetNetworkPeers function with a filter.
+			netID := n.ID()
+			filter := dbCluster.NetworkPeerFilter{NetworkID: &netID}
+			peers, err := dbCluster.GetNetworkPeers(ctx, tx.Tx(), filter)
+			if err != nil {
+				return err
+			}
 
-			return err
+			peerNames = make(map[int64]string, len(peers))
+			for _, peer := range peers {
+				peerNames[peer.ID] = peer.Name
+			}
+
+			return nil
 		})
 		if err != nil {
 			return response.SmartError(fmt.Errorf("Failed loading network peers: %w", err))
