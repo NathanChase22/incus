@@ -7,7 +7,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"net/http"
 
 	dbCluster "github.com/lxc/incus/v6/internal/server/db/cluster"
 	"github.com/lxc/incus/v6/internal/server/db/query"
@@ -154,71 +153,6 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	}
 
 	return localPeerID, targetPeerNetworkID > -1, nil
-}
-
-// GetNetworkPeer returns the Network Peer ID and info for the given network ID and peer name.
-func (c *ClusterTx) GetNetworkPeer(ctx context.Context, networkID int64, peerName string) (int64, *api.NetworkPeer, error) {
-	// This query loads the specified local peer as well as trying to ascertain whether there is a mutual
-	// target peer, and if so what are its project and network names. This is used to populate the
-	// TargetProject, TargetNetwork fields and indicates the Status is api.NetworkStatusCreated if available.
-	// If the peer is not mutually configured, then the local target_network_project and target_network_name
-	// fields will be used to populate TargetProject and TargetNetwork and the Status will be set to
-	// api.NetworkStatusPending.
-	q := `
-	SELECT
-		local_peer.id,
-		local_peer.name,
-		local_peer.description,
-		local_peer.type,
-		IFNULL(local_peer.target_network_project, ""),
-		IFNULL(local_peer.target_network_name, ""),
-		IFNULL(target_peer_network.name, "") AS target_peer_network_name,
-		IFNULL(target_peer_project.name, "") AS target_peer_network_project,
-		IFNULL(target_integration.name, "")
-	FROM networks_peers AS local_peer
-	LEFT JOIN networks_integrations AS target_integration
-		ON target_integration.id = local_peer.target_network_integration_id
-	LEFT JOIN networks_peers AS target_peer
-		ON target_peer.network_id = local_peer.target_network_id
-		AND target_peer.target_network_id = local_peer.network_id
-	LEFT JOIN networks AS target_peer_network
-		ON target_peer.network_id = target_peer_network.id
-	LEFT JOIN projects AS target_peer_project
-		ON target_peer_network.project_id = target_peer_project.id
-	WHERE local_peer.network_id = ? AND local_peer.name = ?
-	LIMIT 1
-	`
-
-	var err error
-	var peerID int64 = -1
-	peerType := -1
-	var peer api.NetworkPeer
-	var targetPeerNetworkName string
-	var targetPeerNetworkProject string
-
-	// Get all the DB fields.
-	err = c.tx.QueryRowContext(ctx, q, networkID, peerName).Scan(&peerID, &peer.Name, &peer.Description, &peerType, &peer.TargetProject, &peer.TargetNetwork, &targetPeerNetworkName, &targetPeerNetworkProject, &peer.TargetIntegration)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return -1, nil, api.StatusErrorf(http.StatusNotFound, "Network peer not found")
-		}
-
-		return -1, nil, err
-	}
-
-	// Convert the type to a string.
-	peer.Type = networkPeerTypeNames[peerType]
-
-	// Add in the peer config.
-	peer.Config, err = dbCluster.GetNetworkPeerConfig(ctx, c.tx, int(peerID))
-	if err != nil {
-		return -1, nil, err
-	}
-
-	// Add the peer info.
-	networkPeerPopulatePeerInfo(&peer, targetPeerNetworkProject, targetPeerNetworkName)
-
-	return peerID, &peer, nil
 }
 
 // networkPeerPopulatePeerInfo populates the supplied peer's Status, TargetProject and TargetNetwork fields.
