@@ -493,6 +493,7 @@ func (d *nicPhysical) startBridge() (*deviceConfig.RunConfig, error) {
 			}
 		}
 	}
+	
 	err = d.volatileSet(saveData)
 	if err != nil {
 		return nil, err
