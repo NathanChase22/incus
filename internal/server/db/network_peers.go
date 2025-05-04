@@ -79,7 +79,7 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	}
 
 	// Save config.
-	err = networkPeerConfigAdd(c.tx, localPeerID, info.Config)
+	err = dbCluster.CreateNetworkPeerConfig(ctx, c.tx, localPeerID, info.Config)
 	if err != nil {
 		return -1, false, err
 	}
@@ -156,33 +156,6 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	return localPeerID, targetPeerNetworkID > -1, nil
 }
 
-// networkPeerConfigAdd inserts Network peer config keys.
-func networkPeerConfigAdd(tx *sql.Tx, peerID int64, config map[string]string) error {
-	stmt, err := tx.Prepare(`
-	INSERT INTO networks_peers_config
-	(network_peer_id, key, value)
-	VALUES(?, ?, ?)
-	`)
-	if err != nil {
-		return err
-	}
-
-	defer func() { _ = stmt.Close() }()
-
-	for k, v := range config {
-		if v == "" {
-			continue
-		}
-
-		_, err = stmt.Exec(peerID, k, v)
-		if err != nil {
-			return fmt.Errorf("Failed inserting config: %w", err)
-		}
-	}
-
-	return nil
-}
-
 // GetNetworkPeer returns the Network Peer ID and info for the given network ID and peer name.
 func (c *ClusterTx) GetNetworkPeer(ctx context.Context, networkID int64, peerName string) (int64, *api.NetworkPeer, error) {
 	// This query loads the specified local peer as well as trying to ascertain whether there is a mutual
@@ -237,7 +210,7 @@ func (c *ClusterTx) GetNetworkPeer(ctx context.Context, networkID int64, peerNam
 	peer.Type = networkPeerTypeNames[peerType]
 
 	// Add in the peer config.
-	err = networkPeerConfig(ctx, c, peerID, &peer)
+	peer.Config, err = dbCluster.GetNetworkPeerConfig(ctx, c.tx, int(peerID))
 	if err != nil {
 		return -1, nil, err
 	}
@@ -282,36 +255,6 @@ func networkPeerPopulatePeerInfo(peer *api.NetworkPeer, targetPeerNetworkProject
 			peer.Status = api.NetworkStatusErrored
 		}
 	}
-}
-
-// networkPeerConfig populates the config map of the Network Peer with the given ID.
-func networkPeerConfig(ctx context.Context, tx *ClusterTx, peerID int64, peer *api.NetworkPeer) error {
-	q := `
-	SELECT
-		key,
-		value
-	FROM networks_peers_config
-	WHERE network_peer_id=?
-	`
-
-	peer.Config = make(map[string]string)
-	return query.Scan(ctx, tx.Tx(), q, func(scan func(dest ...any) error) error {
-		var key, value string
-
-		err := scan(&key, &value)
-		if err != nil {
-			return err
-		}
-
-		_, found := peer.Config[key]
-		if found {
-			return fmt.Errorf("Duplicate config row found for key %q for network peer ID %d", key, peerID)
-		}
-
-		peer.Config[key] = value
-
-		return nil
-	}, peerID)
 }
 
 // GetNetworkPeers returns map of Network Peers for the given network ID keyed on Peer ID.
@@ -378,7 +321,7 @@ func (c *ClusterTx) GetNetworkPeers(ctx context.Context, networkID int64) (map[i
 
 	// Populate config.
 	for peerID := range peers {
-		err = networkPeerConfig(ctx, c, peerID, peers[peerID])
+		peers[peerID].Config, err = dbCluster.GetNetworkPeerConfig(ctx, c.tx, int(peerID))
 		if err != nil {
 			return nil, err
 		}
