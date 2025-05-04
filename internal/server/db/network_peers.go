@@ -155,42 +155,6 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	return localPeerID, targetPeerNetworkID > -1, nil
 }
 
-// networkPeerPopulatePeerInfo populates the supplied peer's Status, TargetProject and TargetNetwork fields.
-// It uses the state of the targetPeerNetworkProject and targetPeerNetworkName arguments to decide whether the
-// peering is mutually created and whether to use those values rather than the values contained in the peer.
-func networkPeerPopulatePeerInfo(peer *api.NetworkPeer, targetPeerNetworkProject string, targetPeerNetworkName string) {
-	// The rest of this function doesn't apply to remote peerings.
-	if peer.Type == networkPeerTypeNames[networkPeerTypeRemote] {
-		peer.Status = api.NetworkStatusCreated
-		return
-	}
-
-	// Peer has mutual peering from target network.
-	if targetPeerNetworkName != "" && targetPeerNetworkProject != "" {
-		if peer.TargetNetwork != "" || peer.TargetProject != "" {
-			// Peer is in a conflicting state with both the peer network ID and net/project names set.
-			// Peer net/project names should only be populated before the peer is linked with a peer
-			// network ID.
-			peer.Status = api.NetworkStatusErrored
-		} else {
-			// Peer is linked to an mutual peer on the target network.
-			peer.TargetNetwork = targetPeerNetworkName
-			peer.TargetProject = targetPeerNetworkProject
-			peer.Status = api.NetworkStatusCreated
-		}
-	} else {
-		if peer.TargetNetwork != "" || peer.TargetProject != "" {
-			// Peer isn't linked to a mutual peer on the target network yet but has joining details.
-			peer.Status = api.NetworkStatusPending
-		} else {
-			// Peer isn't linked to a mutual peer on the target network yet and has no joining details.
-			// Perhaps it was formerly joined (and had its joining details cleared) and subsequently
-			// the target peer removed its peering entry.
-			peer.Status = api.NetworkStatusErrored
-		}
-	}
-}
-
 // GetNetworkPeersURLByIntegration returns a slice of API paths for the peers using the integration.
 func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, networkIntegration string) ([]string, error) {
 	q := `
