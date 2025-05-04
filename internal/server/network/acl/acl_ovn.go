@@ -133,10 +133,12 @@ func OVNEnsureACLs(s *state.State, l logger.Logger, client *ovn.NB, aclProjectNa
 						NetworkName: network.Name,
 						PeerName:    dbPeer.Name,
 					}
+
 					peerTargetNetIDs[peerKey] = dbPeer.TargetNetworkID.Int64
 				}
 			}
 		}
+
 		return nil
 	})
 	if err != nil {
