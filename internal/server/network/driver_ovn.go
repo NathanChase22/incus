@@ -6744,7 +6744,38 @@ func (n *ovn) PeerUpdate(peerName string, req api.NetworkPeerPut) error {
 	}
 
 	err = n.state.DB.Cluster.Transaction(context.TODO(), func(ctx context.Context, tx *db.ClusterTx) error {
-		return tx.UpdateNetworkPeer(ctx, n.ID(), curPeerID, &newPeer.NetworkPeerPut)
+		// Fetch the current peer object to get its name and current state.
+		peers, err := dbCluster.GetNetworkPeers(ctx, tx.Tx(), dbCluster.NetworkPeerFilter{NetworkID: &n.id, ID: &curPeerID})
+		if err != nil {
+			return fmt.Errorf("Failed to get network peer: %w", err)
+		}
+
+		if len(peers) == 0 {
+			return fmt.Errorf("Network peer not found")
+		}
+
+		if len(peers) > 1 {
+			return fmt.Errorf("Multiple network peers found")
+		}
+
+		currentPeer := peers[0]
+
+		// Update the description field from the input.
+		currentPeer.Description = newPeer.Description
+
+		// Update the main peer object.
+		err = dbCluster.UpdateNetworkPeer(ctx, tx.Tx(), currentPeer.Name, currentPeer)
+		if err != nil {
+			return fmt.Errorf("Failed to update network peer: %w", err)
+		}
+
+		// Update the peer configuration.
+		err = dbCluster.UpdateNetworkPeerConfig(ctx, tx.Tx(), curPeerID, newPeer.Config)
+		if err != nil {
+			return fmt.Errorf("Failed to update network peer config: %w", err)
+		}
+
+		return nil
 	})
 	if err != nil {
 		return err

@@ -455,41 +455,6 @@ func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, network
 	return usedBy, nil
 }
 
-// UpdateNetworkPeer updates an existing Network Peer.
-func (c *ClusterTx) UpdateNetworkPeer(ctx context.Context, networkID int64, peerID int64, info *api.NetworkPeerPut) error {
-	// Update existing Network peer record.
-	res, err := c.tx.ExecContext(ctx, `
-		UPDATE networks_peers
-		SET description = ?
-		WHERE network_id = ? and id = ?
-		`, info.Description, networkID, peerID)
-	if err != nil {
-		return err
-	}
-
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected <= 0 {
-		return api.StatusErrorf(http.StatusNotFound, "Network peer not found")
-	}
-
-	// Save config.
-	_, err = c.tx.ExecContext(ctx, "DELETE FROM networks_peers_config WHERE network_peer_id=?", peerID)
-	if err != nil {
-		return err
-	}
-
-	err = networkPeerConfigAdd(c.tx, peerID, info.Config)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 // NetworkPeer represents a peer connection.
 type NetworkPeer struct {
 	NetworkName string
