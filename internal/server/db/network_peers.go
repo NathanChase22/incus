@@ -9,8 +9,6 @@ import (
 	"fmt"
 
 	dbCluster "github.com/lxc/incus/v6/internal/server/db/cluster"
-	"github.com/lxc/incus/v6/internal/server/db/query"
-	"github.com/lxc/incus/v6/internal/version"
 	"github.com/lxc/incus/v6/shared/api"
 )
 
@@ -153,42 +151,6 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	}
 
 	return localPeerID, targetPeerNetworkID > -1, nil
-}
-
-// GetNetworkPeersURLByIntegration returns a slice of API paths for the peers using the integration.
-func (c *ClusterTx) GetNetworkPeersURLByIntegration(ctx context.Context, networkIntegration string) ([]string, error) {
-	q := `
-	SELECT
-		projects.name,
-		networks.name,
-		networks_peers.name
-	FROM networks_peers
-	JOIN networks ON networks.id=networks_peers.network_id
-	JOIN networks_integrations ON networks_integrations.id=networks_peers.target_network_integration_id
-	JOIN projects ON networks.project_id=projects.id
-	WHERE networks_integrations.name = ?
-	`
-
-	usedBy := []string{}
-	err := query.Scan(ctx, c.tx, q, func(scan func(dest ...any) error) error {
-		var projectName string
-		var networkName string
-		var peerName string
-
-		err := scan(&projectName, &networkName, &peerName)
-		if err != nil {
-			return err
-		}
-
-		usedBy = append(usedBy, api.NewURL().Path(version.APIVersion, "networks", networkName, "peers", peerName).Project(projectName).String())
-
-		return nil
-	}, networkIntegration)
-	if err != nil {
-		return nil, err
-	}
-
-	return usedBy, nil
 }
 
 // NetworkPeer represents a peer connection.
