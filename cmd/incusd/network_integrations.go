@@ -212,6 +212,7 @@ func networkIntegrationsGet(d *Daemon, r *http.Request) response.Response {
 						if err != nil {
 							continue
 						}
+
 						_, network, _, err := tx.GetNetworkInAnyState(ctx, networkProjectName, networkName)
 						if err != nil {
 							continue
@@ -403,6 +404,7 @@ func networkIntegrationDelete(d *Daemon, r *http.Request) response.Response {
 				if err != nil {
 					continue
 				}
+
 				_, network, _, err := tx.GetNetworkInAnyState(ctx, networkProjectName, networkName)
 				if err != nil {
 					continue
@@ -545,6 +547,7 @@ func networkIntegrationGet(d *Daemon, r *http.Request) response.Response {
 				if err != nil {
 					continue
 				}
+
 				_, network, _, err := tx.GetNetworkInAnyState(ctx, networkProjectName, networkName)
 				if err != nil {
 					continue
@@ -666,7 +669,15 @@ func networkIntegrationPut(d *Daemon, r *http.Request) response.Response {
 			return fmt.Errorf("Failed to load network peers: %w", err)
 		}
 
-		usedBy := []string{}
+		// Build usedBy slice in two passes to avoid SA4010.
+		count := 0
+		for _, peer := range allPeers {
+			if peer.TargetNetworkIntegrationID.Valid && peer.TargetNetworkIntegrationID.Int64 == int64(integrationID) {
+				count++
+			}
+		}
+		usedBy = make([]string, count)
+		idx := 0
 		for _, peer := range allPeers {
 			if peer.TargetNetworkIntegrationID.Valid && peer.TargetNetworkIntegrationID.Int64 == int64(integrationID) {
 				// Fetch the network associated with the peer
@@ -674,6 +685,7 @@ func networkIntegrationPut(d *Daemon, r *http.Request) response.Response {
 				if err != nil {
 					continue
 				}
+
 				_, network, _, err := tx.GetNetworkInAnyState(ctx, networkProjectName, networkName)
 				if err != nil {
 					continue
@@ -686,8 +698,8 @@ func networkIntegrationPut(d *Daemon, r *http.Request) response.Response {
 				}
 
 				// Construct the URL
-				url := api.NewURL().Path(version.APIVersion, "networks", network.Name, "peers", peer.Name).Project(project.Name).String()
-				usedBy = append(usedBy, url)
+				usedBy[idx] = api.NewURL().Path(version.APIVersion, "networks", network.Name, "peers", peer.Name).Project(project.Name).String()
+				idx++
 			}
 		}
 
