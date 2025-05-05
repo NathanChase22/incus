@@ -31,23 +31,18 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 	var localPeerID int64
 	var targetPeerNetworkID int64 = -1 // -1 means no mutual peering exists.
 
-	if info.Type == "" || info.Type == networkPeerTypeNames[networkPeerTypeLocal] {
-		// Insert a new pending local peer record.
-		result, err := c.tx.ExecContext(ctx, `
-		INSERT INTO networks_peers
-		(network_id, name, description, type, target_network_project, target_network_name)
-		VALUES (?, ?, ?, ?, ?, ?)
-		`, networkID, info.Name, info.Description, networkPeerTypeLocal, info.TargetProject, info.TargetNetwork)
-		if err != nil {
-			return -1, false, err
-		}
+	dbPeer := dbCluster.NetworkPeer{
+		NetworkID:   int64(networkID),
+		Name:        info.Name,
+		Description: info.Description,
+	}
 
-		localPeerID, err = result.LastInsertId()
-		if err != nil {
-			return -1, false, err
-		}
-	} else if info.Type == networkPeerTypeNames[networkPeerTypeRemote] {
-		// Get the target integration.
+	switch info.Type {
+	case "", networkPeerTypeNames[networkPeerTypeLocal]:
+		dbPeer.Type = networkPeerTypeLocal
+		dbPeer.TargetNetworkProject = sql.NullString{String: info.TargetProject, Valid: info.TargetProject != ""}
+		dbPeer.TargetNetworkName = sql.NullString{String: info.TargetNetwork, Valid: info.TargetNetwork != ""}
+	case networkPeerTypeNames[networkPeerTypeRemote]:
 		if info.TargetIntegration == "" {
 			return -1, false, fmt.Errorf("Missing network integration name")
 		}
@@ -57,95 +52,89 @@ func (c *ClusterTx) CreateNetworkPeer(ctx context.Context, networkID int64, info
 			return -1, false, err
 		}
 
-		// Insert a new remote peer record.
-		result, err := c.tx.ExecContext(ctx, `
-		INSERT INTO networks_peers
-		(network_id, name, description, type, target_network_integration_id)
-		VALUES (?, ?, ?, ?, ?)
-		`, networkID, info.Name, info.Description, networkPeerTypeRemote, networkIntegration.ID)
-		if err != nil {
-			return -1, false, err
-		}
-
-		localPeerID, err = result.LastInsertId()
-		if err != nil {
-			return -1, false, err
-		}
-	} else {
+		dbPeer.Type = networkPeerTypeRemote
+		dbPeer.TargetNetworkIntegrationID = sql.NullInt64{Int64: int64(networkIntegration.ID), Valid: true}
+	default:
 		return -1, false, fmt.Errorf("Invalid network peer type %q", info.Type)
 	}
 
-	// Save config.
-	err = dbCluster.CreateNetworkPeerConfig(ctx, c.tx, localPeerID, info.Config)
+	localPeerID, err = dbCluster.CreateNetworkPeer(ctx, c.tx, dbPeer)
 	if err != nil {
 		return -1, false, err
 	}
 
-	if info.Type == "" || info.Type == networkPeerTypeNames[networkPeerTypeLocal] {
+	if dbPeer.Type == networkPeerTypeLocal {
 		// Check if we are creating a mutual peering of an existing peer and if so then update both sides
-		// with the respective network IDs. This query looks up our network peer's network name and project
-		// name and then checks if there are any unlinked (target_network_id IS NULL) peers that have
-		// matching target network and project names for the network this peer belongs to. If so then it
-		// returns the target peer's ID and network ID. This can then be used to update both our local peer
-		// and the target peer itself with the respective network IDs of each side.
-		q := `
-		SELECT
-			target_peer.id,
-			target_peer.network_id
-		FROM networks_peers AS local_peer
-		JOIN networks AS local_network
-			ON local_network.id = local_peer.network_id
-		JOIN projects AS local_project
-			ON local_project.id = local_network.project_id
-		JOIN networks_peers AS target_peer
-			ON target_peer.target_network_name = local_network.name
-			AND target_peer.target_network_project = local_project.name
-		JOIN networks AS target_peer_network
-			ON target_peer.network_id = target_peer_network.id
-			AND target_peer_project.name = ?
-		JOIN projects AS target_peer_project
-			ON target_peer_network.project_id = target_peer_project.id
-			AND target_peer_network.name = ?
-		WHERE
-			local_peer.network_id = ?
-			AND local_peer.id = ?
-			AND target_peer.target_network_id IS NULL
-		LIMIT 1
-		`
+		// with the respective network IDs.
+		localNetworkName, localProjectName, err := c.GetNetworkNameAndProjectWithID(ctx, int(networkID))
+		if err != nil {
+			return -1, false, fmt.Errorf("Failed getting local network info: %w", err)
+		}
 
-		var targetPeerID int64 = -1
-
-		err = c.tx.QueryRowContext(ctx, q, info.TargetProject, info.TargetNetwork, networkID, localPeerID).Scan(&targetPeerID, &targetPeerNetworkID)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return -1, false, fmt.Errorf("Failed looking up mutual peering: %w", err)
-		} else if err == nil {
-			peerNetworkMap := map[int64]struct {
-				localNetworkID      int64
-				targetPeerNetworkID int64
-			}{
-				localPeerID: {
-					localNetworkID:      networkID,
-					targetPeerNetworkID: targetPeerNetworkID,
-				},
-				targetPeerID: {
-					localNetworkID:      targetPeerNetworkID,
-					targetPeerNetworkID: networkID,
-				},
+		targetNetworkID, err := c.GetNetworkID(ctx, info.TargetProject, info.TargetNetwork)
+		if err != nil {
+			// Target network might not exist yet, which is fine.
+			if errors.Is(err, sql.ErrNoRows) { // GetNetworkID returns ErrNoRows internally before wrapping
+				return localPeerID, false, nil
 			}
 
-			// A mutual peering has been found, update both sides with their respective network IDs
-			// and clear the joining target project and network names.
-			for peerID, peerMap := range peerNetworkMap {
-				_, err := c.tx.Exec(`
-				UPDATE networks_peers SET
-					target_network_id = ?,
-					target_network_project = NULL,
-					target_network_name = NULL
-				WHERE networks_peers.network_id = ? AND networks_peers.id = ?
-				`, peerMap.targetPeerNetworkID, peerMap.localNetworkID, peerID)
-				if err != nil {
-					return -1, false, fmt.Errorf("Failed updating mutual peering: %w", err)
+			return -1, false, fmt.Errorf("Failed getting target network ID: %w", err)
+		}
+
+		// Find potential target peer(s) pointing back at our local network.
+		targetNetworkPeers, err := dbCluster.GetNetworkPeers(ctx, c.tx, dbCluster.NetworkPeerFilter{NetworkID: &targetNetworkID})
+		if err != nil && !errors.Is(err, dbCluster.ErrNotFound) {
+			return -1, false, fmt.Errorf("Failed looking up potential mutual peers: %w", err)
+		}
+
+		var targetPeer *dbCluster.NetworkPeer // The specific target peer we found.
+
+		// Find the unlinked peer targeting our local network.
+		for i := range targetNetworkPeers {
+			p := targetNetworkPeers[i] // Use a pointer to the peer in the slice
+			if !p.TargetNetworkID.Valid {
+				if p.TargetNetworkProject.Valid && p.TargetNetworkProject.String == localProjectName && p.TargetNetworkName.Valid && p.TargetNetworkName.String == localNetworkName {
+					if targetPeer != nil {
+						// Should not happen, but guard against multiple matches.
+						return -1, false, fmt.Errorf("Multiple unlinked mutual peers found")
+					}
+
+					targetPeer = &p
+					targetPeerNetworkID = int64(p.NetworkID) // Capture the target peer's network ID.
 				}
+			}
+		}
+
+		// If a mutual peer was found, update both peer entries.
+		if targetPeer != nil {
+			localPeerUpdateFilter := dbCluster.NetworkPeerFilter{NetworkID: &networkID, ID: &localPeerID}
+			localPeers, err := dbCluster.GetNetworkPeers(ctx, c.tx, localPeerUpdateFilter)
+			if err != nil || len(localPeers) != 1 {
+				return -1, false, fmt.Errorf("Failed to fetch local peer for update: %w", err)
+			}
+
+			localPeerToUpdate := localPeers[0]
+			localPeerToUpdate.TargetNetworkID = sql.NullInt64{Int64: targetPeerNetworkID, Valid: true}
+			localPeerToUpdate.TargetNetworkProject = sql.NullString{Valid: false}
+			localPeerToUpdate.TargetNetworkName = sql.NullString{Valid: false}
+
+			err = dbCluster.UpdateNetworkPeer(ctx, c.tx, localPeerToUpdate.Name, localPeerToUpdate)
+			if err != nil {
+				return -1, false, fmt.Errorf("Failed updating local peer for mutual peering: %w", err)
+			}
+
+			targetPeer.TargetNetworkID = sql.NullInt64{Int64: networkID, Valid: true}
+			targetPeer.TargetNetworkProject = sql.NullString{Valid: false}
+			targetPeer.TargetNetworkName = sql.NullString{Valid: false}
+
+			err = dbCluster.UpdateNetworkPeer(ctx, c.tx, targetPeer.Name, *targetPeer)
+			if err != nil {
+				// Attempt to revert the update on the local peer.
+				localPeerToUpdate.TargetNetworkID = sql.NullInt64{Valid: false}
+				localPeerToUpdate.TargetNetworkProject = sql.NullString{String: info.TargetProject, Valid: info.TargetProject != ""}
+				localPeerToUpdate.TargetNetworkName = sql.NullString{String: info.TargetNetwork, Valid: info.TargetNetwork != ""}
+				_ = dbCluster.UpdateNetworkPeer(ctx, c.tx, localPeerToUpdate.Name, localPeerToUpdate)
+				return -1, false, fmt.Errorf("Failed updating target peer for mutual peering: %w", err)
 			}
 		}
 	}
